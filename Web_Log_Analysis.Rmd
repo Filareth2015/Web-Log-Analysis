@@ -1,0 +1,272 @@
+---
+title: "Web Log Analysis (example)"
+author: "Zanin Pavel"
+date: "March 10, 2016"
+output: html_document
+---
+
+[Link to project on GitHUB](https://github.com/Filareth2015/Web-Log-Analysis-Example)     
+[Link to project on RPub](http://rpubs.com/Zanin_Pavel/180757)
+
+## Content    
+[Introduction](#Intrduction)    
+[ATO Entry Pages](#Entry_Pages)    
+[ATO Browser Data](#Browser_Data)         
+[ATO Top 100 Keywords](#Top_Keywords)        
+
+
+## <a name="Introduction"/> Introduction
+
+In this report we will work with some publicly available data from the Australian Government. 
+
+The Australian Taxation Office (ATO) provided some of its web log data for GovHack 2014. It is available on the Australian Government's data sharing [web site](http://data.gov.au) and specifically within the ATO Web Analytics section. 
+
+## <a name="Entry_Pages"/> ATO Entry Pages
+
+Loading necessary libraries:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+library(rattle) # normVarNames().
+library(stringr) # String manpiulation.
+library(tidyr) # Tidy the dataset.
+library(dplyr) # Data manipulation.
+library(ggplot2) # Visualise data.
+library(scales) # Include commas in numbers.
+library(directlabels) # Dodging labels for ggplot2.   
+```
+
+Loading dataset:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+ds <- read.csv('Entry pages by month and traffic source - July 2013 to April 2014.csv')        
+```
+
+Variable names simplifying:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+names(ds) <- normVarNames(names(ds))      
+names(ds)   
+```
+
+We can now explore some of the characteristics of the dataset: 
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+dim(ds) # Datasets dimensions   
+summary(ds[-1]) # Datasets summary    
+```
+
+The variable month appears to report the month and year. The source looks to record, presumably, whether the person browsing is external to the ATO or internal to the ATO. For an entry
+point the views looks to report the number of views for that month (and broken down between
+internal and external views). Similarly for visits.
+
+Quantity of different entry points:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+length(levels(ds$entry_page))    
+```
+So, out of the 207,118, there are 33,260 different entry points.
+
+The total number of views/visits to the ATO website:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+format(sum(ds$views), big.mark=",") # The total number of views
+format(sum(ds$visits), big.mark=",") # The total number of visits
+```
+
+```{r, warning=FALSE, message = FALSE, echo=FALSE, cache=TRUE}
+months <- c("13-Jul", "13-Aug", "13-Sep", "13-Oct", "13-Nov", 
+            "13-Dec", "14-Jan", "14-Feb", "14-Mar", "14-Apr")
+
+ds$month <- factor(ds$month, levels=months)
+```
+
+Explore the views/visits per month:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, fig.width = 10, fig.height = 6, fig.align="center", cache=TRUE}
+ds %>%
+  group_by(month) %>%
+  summarise(views=sum(views), visits=sum(visits)) %>%
+  gather(type, count, -month) %>%
+  ggplot(aes(x=month, y=count, fill=type)) +
+  geom_bar(stat="identity", position="dodge") +
+  scale_y_continuous(labels=comma) +
+  labs(fill="Type", x="Month", y="Count") +
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+We can see an interesting pattern of views versus visits in that there's a reasonably 
+at number of visits over the period, however the number of views (and also we would suggest views per visit) is dramatically increased for July. We would really need to analyse the relative change in views/visit over time to confirm that observation, but we'll stay with the visual for now.
+The July spike may well correspond to the Australian financial year ending in June and starting
+in July. We might also observe the holiday season around December when there must be less
+interest in taxation topics.
+
+The breakdown between External and Internal:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, fig.width = 10, fig.height = 6, fig.align="center", cache=TRUE}
+ds %>%
+group_by(month, source) %>%
+summarise(views=sum(views), visits=sum(visits)) %>%
+gather(type, count, -c(month, source)) %>%
+ggplot(aes(x=month, y=count, fill=type)) +
+geom_bar(stat="identity", position="dodge") +
+scale_y_continuous(labels=comma) +
+labs(fill="Type", x="Month", y="Count") +
+theme(axis.text.x=element_text(angle=45, hjust=1)) +
+facet_wrap(~source)
+```
+
+We can see that relatively speaking there are very few internal views/visits. This should
+not be surprising, as the ATO has only about 20,000 staff, compared to the population of
+Australia at over 23 million.
+
+
+## <a name="Browser_Data"/> ATO Browser Data
+
+Loading dataset:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+ds <- read.csv('Browser by month and traffic source - July 2013 to April 2014.csv')      
+```
+
+Variable names simplifying:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+names(ds) <- normVarNames(names(ds))
+names(ds)[3] <- "source"
+names(ds)
+```
+
+We can now explore some of the characteristics of the dataset: 
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+dim(ds) # Datasets dimensions   
+summary(ds) # Datasets summary    
+```
+We can see that the data records aggregated monthly observations of the browsers connecting
+to the ATO web site. The connection may be internal to the orgranisation or external. As we can see most connections are external.
+
+```{r, warning=FALSE, message = FALSE, echo=FALSE, cache=TRUE}
+months <- c("Jul-13", "Aug-13", "Sep-13", "Oct-13", "Nov-13", 
+            "Dec-13", "Jan-14", "Feb-14", "Mar-14", "Apr-14")
+
+ds$month <- factor(ds$month, levels=months)
+```
+
+The average number of views per visit: 
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+ds$ratio <- ds$views/ds$visits    
+summary(ds$ratio)    
+```
+
+So, as we can see the average number of views per visit is 3.33.
+
+### Explore Internal Usage    
+Let's get some understanding of the internal versus external proles of browser usage. Firstly,
+how many internal versus external visits?
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+freq <- ds %>%   
+group_by(source) %>%
+summarise(total=sum(visits))
+freq    
+```
+We see that internal visits account for just 3% of all visits.
+
+For the Internal users we now check which browsers are being used:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+ib <- ds %>%    
+filter(source == "Internal") %>%
+group_by(browser) %>%
+summarise(total=sum(visits)) %>%
+arrange(desc(total))
+ib    
+```
+The ATO apparently deploys Microsoft Internet Explorer 8 as part of its standard operating
+environment. There's a few other browsers, but they are relatively rarely used.
+
+### Internal Usage Over Time
+
+Explore the browser usage profile over time.
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE, fig.width = 10, fig.height = 6, fig.align="center"}
+ds %>%    
+filter(source=="Internal", visits > 1000) %>%
+ggplot(aes(month, visits, fill=browser)) +
+geom_bar(stat="identity") +
+scale_y_continuous(labels=comma) +
+theme(axis.text.x=element_text(angle=45, hjust=1))    
+```
+It is interesting, if also puzzling, to see quite an increase in visits over the 10 months. We might
+ask if the data is actually complete as a 4-fold increase in internal visits between September 2013
+and April 2014 sounds rather sudden.
+
+### External Visits
+
+Compare the internal browser usage to the external browser usage:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+eb <- ds %>%
+filter(source == "External") %>%
+group_by(browser) %>%
+summarise(total=sum(visits)) %>%
+arrange(desc(total))
+head(eb, 10)    
+```
+
+Looking at all dataset, we saw quite a spread of single hit browsers. In fact, out
+of the 406 there are 142 browsers with a single visit, 297 with less than 10 visits, 372 with less
+than 100 visits, 391 with less than 1000 visits, and 394with less than 20,000 visits.
+
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE, fig.width = 10, fig.height = 6, fig.align="center"}
+ds %>%
+filter(source == "External", visits > 20000) %>%
+ggplot(aes(month, visits, fill=browser)) +
+geom_bar(stat="identity") +
+facet_wrap(~browser) +
+scale_y_continuous(labels=comma) +
+theme(axis.text.x=element_text(angle=45, hjust=1)) +
+theme(legend.position="none")    
+```
+
+
+## <a name="Top_Keywords"/> ATO Top 100 Keywords
+
+Loading the ATO top 100 keywords for analysis:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+ds <- read.csv('Local keywords (top 100) by month and traffic source - July 2013 to April 2014.csv')      
+```
+
+Preparing the dataset for analysis, and as usual we normalise and simplify the column names, order the months chronologically:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+names(ds) <- normVarNames(names(ds))
+ds$month <- factor(ds$month, levels=months)
+names(ds)[1] <- "keyword"
+names(ds)[3] <- "source"
+names(ds)
+```
+
+We can now explore some of the characteristics of the dataset: 
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE}
+dim(ds) # Datasets dimensions   
+summary(ds) # Datasets summary    
+```
+
+### Plot Top 40:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE, fig.width = 10, fig.height = 10, fig.align="center"}
+ds %>%
+group_by(keyword) %>%
+summarise(views=sum(views), visits=sum(visits)) %>%
+arrange(desc(views)) %>%
+head(40) %>%
+gather(type, count, -keyword) %>%
+ggplot(aes(x=keyword, y=count, fill=type)) +
+geom_bar(stat="identity", position="dodge") +
+scale_y_continuous(labels=comma) +
+theme(axis.text.x=element_text(angle=45, hjust=1)) +
+theme(legend.position="top") +
+labs(x="") +
+coord_flip()    
+```
+
+### Plot internal Only:
+```{r, warning=FALSE, message = FALSE, echo=TRUE, cache=TRUE, fig.width = 10, fig.height = 10, fig.align="center"}
+ds %>%
+subset(source=="Internal") %>%
+group_by(keyword) %>%
+summarise(views=sum(views), visits=sum(visits)) %>%
+arrange(desc(views)) %>%
+head(40) %>%
+gather(type, count, -keyword) %>%
+ggplot(aes(x=keyword, y=count, fill=type)) +
+geom_bar(stat="identity", position="dodge") +
+scale_y_continuous(labels=comma) +
+theme(axis.text.x=element_text(angle=45, hjust=1)) +
+theme(legend.position="top") +
+coord_flip()    
+```

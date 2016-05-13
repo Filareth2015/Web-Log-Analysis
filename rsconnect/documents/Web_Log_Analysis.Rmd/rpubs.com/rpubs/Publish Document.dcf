@@ -1,0 +1,7 @@
+name: Publish Document
+account: rpubs
+server: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/180757/b555cba9ba5b49cab4a2a460d45f94e9
+bundleId: https://api.rpubs.com/api/v1/document/180757/b555cba9ba5b49cab4a2a460d45f94e9
+url: http://rpubs.com/Zanin_Pavel/180757
+when: 1463180954.96517
