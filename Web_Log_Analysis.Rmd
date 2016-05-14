@@ -1,5 +1,5 @@
 ---
-title: "Web Log Analysis (example)"
+title: "Web Log Analysis (an example)"
 author: "Zanin Pavel"
 date: "March 10, 2016"
 output: html_document
